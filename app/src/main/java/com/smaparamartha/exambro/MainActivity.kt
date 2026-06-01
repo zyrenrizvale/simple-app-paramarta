@@ -43,7 +43,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvBattery: TextView
     private lateinit var ivBattery: ImageView
     private lateinit var ivSignal: ImageView
+    private lateinit var btnRotate: ImageButton
     private lateinit var btnExit: ImageButton
+
+    // Rotation Lock State
+    private var isRotationLocked = false
 
     // Overlay Elements
     private lateinit var tokenOverlay: RelativeLayout
@@ -66,6 +70,7 @@ class MainActivity : AppCompatActivity() {
         tvBattery = findViewById(R.id.tvBattery)
         ivBattery = findViewById(R.id.ivBattery)
         ivSignal = findViewById(R.id.ivSignal)
+        btnRotate = findViewById(R.id.btnRotate)
         btnExit = findViewById(R.id.btnExit)
 
         tokenOverlay = findViewById(R.id.tokenOverlay)
@@ -79,6 +84,10 @@ class MainActivity : AppCompatActivity() {
         setupWebView()
         fetchDynamicConfig()
         
+        btnRotate.setOnClickListener {
+            toggleRotationLock()
+        }
+
         btnExit.setOnClickListener {
             showTokenOverlay(isExit = true)
         }
@@ -158,6 +167,19 @@ class MainActivity : AppCompatActivity() {
             }
         }
         webView.webChromeClient = WebChromeClient()
+    }
+
+    private fun toggleRotationLock() {
+        isRotationLocked = !isRotationLocked
+        if (isRotationLocked) {
+            requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LOCKED
+            btnRotate.setColorFilter(Color.parseColor("#EF4444")) // Red icon
+            Toast.makeText(this, "Rotasi Layar Dikunci", Toast.LENGTH_SHORT).show()
+        } else {
+            requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+            btnRotate.setColorFilter(Color.WHITE)
+            Toast.makeText(this, "Rotasi Layar Otomatis", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun showTokenOverlay(isExit: Boolean) {

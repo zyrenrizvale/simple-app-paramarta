@@ -49,6 +49,15 @@
             app:tint="@color/text_white" />
 
         <ImageButton
+            android:id="@+id/btnRotate"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_marginEnd="16dp"
+            android:background="?android:attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_rotate"
+            app:tint="@color/text_white" />
+
+        <ImageButton
             android:id="@+id/btnExit"
             android:layout_width="20dp"
             android:layout_height="20dp"
