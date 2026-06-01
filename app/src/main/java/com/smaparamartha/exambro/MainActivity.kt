@@ -41,6 +41,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
     private lateinit var tvBattery: TextView
+    private lateinit var ivBattery: ImageView
     private lateinit var ivSignal: ImageView
     private lateinit var btnExit: ImageButton
 
@@ -63,6 +64,7 @@ class MainActivity : AppCompatActivity() {
 
         webView = findViewById(R.id.webView)
         tvBattery = findViewById(R.id.tvBattery)
+        ivBattery = findViewById(R.id.ivBattery)
         ivSignal = findViewById(R.id.ivSignal)
         btnExit = findViewById(R.id.btnExit)
 
@@ -81,7 +83,7 @@ class MainActivity : AppCompatActivity() {
             showTokenOverlay(isExit = true)
         }
 
-        // Delay splash screen
+        // Delay splash screen (increased to 4 seconds)
         Handler(Looper.getMainLooper()).postDelayed({
             splashScreen.animate()
                 .alpha(0f)
@@ -92,7 +94,7 @@ class MainActivity : AppCompatActivity() {
                         showTokenOverlay(isExit = false)
                     }
                 })
-        }, 2000)
+        }, 4000)
     }
 
     private fun fetchDynamicConfig() {
@@ -159,7 +161,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showTokenOverlay(isExit: Boolean) {
+        // Fade-in animation
+        tokenOverlay.alpha = 0f
         tokenOverlay.visibility = View.VISIBLE
+        tokenOverlay.animate().alpha(1f).setDuration(300).setListener(null).start()
+        
         etOverlayToken.text.clear()
 
         if (isExit) {
@@ -175,21 +181,31 @@ class MainActivity : AppCompatActivity() {
         btnOverlaySubmit.setOnClickListener {
             val token = etOverlayToken.text.toString().trim()
             if (token == tokenAccess) {
-                tokenOverlay.visibility = View.GONE
-                hideSystemUI() // Ensure UI stays hidden after typing
-                if (isExit) {
-                    exitApp()
-                } else {
-                    startExamMode()
-                }
+                // Fade-out animation on success
+                tokenOverlay.animate().alpha(0f).setDuration(300).setListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: Animator) {
+                        tokenOverlay.visibility = View.GONE
+                        hideSystemUI()
+                        if (isExit) {
+                            exitApp()
+                        } else {
+                            startExamMode()
+                        }
+                    }
+                }).start()
             } else {
                 Toast.makeText(this, "Token salah, coba lagi!", Toast.LENGTH_SHORT).show()
             }
         }
 
         btnOverlayCancel.setOnClickListener {
-            tokenOverlay.visibility = View.GONE
-            hideSystemUI()
+            // Fade-out animation on cancel
+            tokenOverlay.animate().alpha(0f).setDuration(300).setListener(object : AnimatorListenerAdapter() {
+                override fun onAnimationEnd(animation: Animator) {
+                    tokenOverlay.visibility = View.GONE
+                    hideSystemUI()
+                }
+            }).start()
         }
     }
 
@@ -249,6 +265,18 @@ class MainActivity : AppCompatActivity() {
             if (level != -1 && scale != -1) {
                 val batteryPct = level * 100 / scale
                 tvBattery.text = "$batteryPct%"
+                
+                // Real-time battery logic
+                if (batteryPct <= 20) {
+                    ivBattery.setColorFilter(Color.parseColor("#EF4444")) // Red
+                    tvBattery.setTextColor(Color.parseColor("#EF4444"))
+                } else if (batteryPct <= 50) {
+                    ivBattery.setColorFilter(Color.parseColor("#FBBF24")) // Yellow
+                    tvBattery.setTextColor(Color.parseColor("#FBBF24"))
+                } else {
+                    ivBattery.setColorFilter(Color.WHITE)
+                    tvBattery.setTextColor(Color.WHITE)
+                }
             }
         }
     }
@@ -263,6 +291,18 @@ class MainActivity : AppCompatActivity() {
         telephonyManager.listen(object : PhoneStateListener() {
             override fun onSignalStrengthsChanged(signalStrength: SignalStrength?) {
                 super.onSignalStrengthsChanged(signalStrength)
+                signalStrength?.let {
+                    val level = it.level // Returns 0 to 4
+                    // Real-time signal dynamic alpha
+                    when (level) {
+                        0 -> ivSignal.alpha = 0.2f
+                        1 -> ivSignal.alpha = 0.4f
+                        2 -> ivSignal.alpha = 0.6f
+                        3 -> ivSignal.alpha = 0.8f
+                        4 -> ivSignal.alpha = 1.0f
+                        else -> ivSignal.alpha = 1.0f
+                    }
+                }
             }
         }, PhoneStateListener.LISTEN_SIGNAL_STRENGTHS)
     }

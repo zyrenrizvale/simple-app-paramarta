@@ -15,26 +15,17 @@
     <LinearLayout
         android:id="@+id/customHeader"
         android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:background="#D90B1120"
+        android:layout_height="32dp"
+        android:background="#80000000"
         android:orientation="horizontal"
-        android:gravity="center_vertical"
+        android:gravity="center_vertical|end"
         android:paddingHorizontal="16dp"
         android:layout_alignParentTop="true">
 
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Exambro SMA Paramartha"
-            android:textColor="@color/text_white"
-            android:textSize="16sp"
-            android:textStyle="bold" />
-
         <ImageView
             android:id="@+id/ivSignal"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
             android:layout_marginEnd="8dp"
             android:src="@drawable/ic_signal"
             app:tint="@color/text_white" />
@@ -43,24 +34,24 @@
             android:id="@+id/tvBattery"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginEnd="6dp"
+            android:layout_marginEnd="4dp"
             android:text="100%"
             android:textColor="@color/text_white"
-            android:textSize="14sp"
+            android:textSize="12sp"
             android:textStyle="bold" />
 
         <ImageView
             android:id="@+id/ivBattery"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
+            android:layout_width="16dp"
+            android:layout_height="16dp"
             android:layout_marginEnd="16dp"
             android:src="@drawable/ic_battery"
             app:tint="@color/text_white" />
 
         <ImageButton
             android:id="@+id/btnExit"
-            android:layout_width="28dp"
-            android:layout_height="28dp"
+            android:layout_width="20dp"
+            android:layout_height="20dp"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_exit"
             app:tint="@color/color_gold" />
