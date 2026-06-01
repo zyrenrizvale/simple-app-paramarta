@@ -1,7 +1,7 @@
 name: Rakit Exambro & Kirim Telegram
 
 on:
-  workflow_dispatch: # Tombol manual untuk menjalankan aksi
+  workflow_dispatch:
 
 jobs:
   build:
@@ -28,15 +28,10 @@ jobs:
           ANGKA_ACAK=$RANDOM
           NAMA_FILE="Exambro_Paramarta_$ANGKA_ACAK.apk"
           
-          # Gandakan dan ubah nama dengan angka acak
           cp app/build/outputs/apk/debug/app-debug.apk $NAMA_FILE
           
-          # Kirim file dengan nama unik tersebut
           for ID in 6071587883 7520038758; do
             curl -F document=@"$NAMA_FILE" \
-                 -F caption="🚀 *EXAMBRO PARAMARTA: CLOUD BUILD SUCCESS!* 🚀
-                 
-Mesin: GitHub Actions
-Status: Siap diuji! Silakan unduh." \
+                 -F caption=$'🚀 *EXAMBRO PARAMARTA: CLOUD BUILD SUCCESS!* 🚀\n\nMesin: GitHub Actions\nStatus: Siap diuji! Silakan unduh.' \
                  "https://api.telegram.org/bot8825507034:AAE6-v3lKkBrfjJJ3lTR7dtaXIwfr1GzHJ8/sendDocument?chat_id=$ID"
           done
