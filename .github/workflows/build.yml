@@ -20,6 +20,9 @@ jobs:
       - name: Beri Izin Eksekusi Gradle
         run: chmod +x gradlew
 
+      - name: Hapus Settingan Java Windows
+        run: sed -i '/org.gradle.java.home/d' gradle.properties || true
+
       - name: Rakit APK
         run: ./gradlew assembleDebug
 
