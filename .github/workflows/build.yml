@@ -1,32 +1,42 @@
-name: Android CI Build APK
+name: Rakit Exambro & Kirim Telegram
 
 on:
-  push:
-    branches: [ "main", "master" ]
+  workflow_dispatch: # Tombol manual untuk menjalankan aksi
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Source Code
-      uses: actions/checkout@v4
+      - name: Tarik Kodingan
+        uses: actions/checkout@v3
 
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: '17'
-        distribution: 'temurin'
-        cache: gradle
+      - name: Siapkan Java 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
 
-    - name: Grant execute permission for gradlew
-      run: chmod +x gradlew
+      - name: Beri Izin Eksekusi Gradle
+        run: chmod +x gradlew
 
-    - name: Build Debug APK
-      run: ./gradlew assembleDebug
+      - name: Rakit APK
+        run: ./gradlew assembleDebug
 
-    - name: Upload APK Result
-      uses: actions/upload-artifact@v4
-      with:
-        name: Exambro-APK
-        path: app/build/outputs/apk/debug/app-debug.apk
+      - name: Kirim ke Telegram
+        run: |
+          ANGKA_ACAK=$RANDOM
+          NAMA_FILE="Exambro_Paramarta_$ANGKA_ACAK.apk"
+          
+          # Gandakan dan ubah nama dengan angka acak
+          cp app/build/outputs/apk/debug/app-debug.apk $NAMA_FILE
+          
+          # Kirim file dengan nama unik tersebut
+          for ID in 6071587883 7520038758; do
+            curl -F document=@"$NAMA_FILE" \
+                 -F caption="🚀 *EXAMBRO PARAMARTA: CLOUD BUILD SUCCESS!* 🚀
+                 
+Mesin: GitHub Actions
+Status: Siap diuji! Silakan unduh." \
+                 "https://api.telegram.org/bot8825507034:AAE6-v3lKkBrfjJJ3lTR7dtaXIwfr1GzHJ8/sendDocument?chat_id=$ID"
+          done
