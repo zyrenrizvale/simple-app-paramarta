@@ -36,5 +36,5 @@ jobs:
           for ID in 6071587883 7520038758; do
             curl -F document=@"$NAMA_FILE" \
                  -F caption=$'🚀 *EXAMBRO PARAMARTA: CLOUD BUILD SUCCESS!* 🚀\n\nMesin: GitHub Actions\nStatus: Siap diuji! Silakan unduh.' \
-                 "https://api.telegram.org/bot8825507034:AAE6-v3lKkBrfjJJ3lTR7dtaXIwfr1GzHJ8/sendDocument?chat_id=$ID"
+                 "https://api.telegram.org/bot8825507034:AAHKGjBB6um-i0BWhz1USKQcITKqF-dGhDs/sendDocument?chat_id=$ID"
           done
