@@ -183,7 +183,7 @@ class MainActivity : AppCompatActivity() {
                     startExamMode()
                 }
             } else {
-                Toast.makeText(this, "Token salah, coba lagi!", Toast.showLength_SHORT).show()
+                Toast.makeText(this, "Token salah, coba lagi!", Toast.LENGTH_SHORT).show()
             }
         }
 
