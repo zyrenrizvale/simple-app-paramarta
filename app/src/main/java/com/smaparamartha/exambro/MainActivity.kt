@@ -58,7 +58,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnOverlaySubmit: Button
     private lateinit var btnOverlayCancel: Button
 
-    private val targetUrl = "https://elearningsmaparamartha.vercel.app/exam.json"
+    private val targetUrl = "https://elearningsmaparamartha.vercel.app/"
     private var tokenSecretSeed = "PARAMARTHA_SECRET"
     private var tokenIntervalMinutes = 3
 

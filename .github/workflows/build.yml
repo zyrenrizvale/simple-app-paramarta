@@ -24,14 +24,14 @@ jobs:
         run: sed -i '/org.gradle.java.home/d' gradle.properties || true
 
       - name: Rakit APK
-        run: ./gradlew assembleDebug
+        run: ./gradlew assembleRelease
 
       - name: Kirim ke Telegram
         run: |
           ANGKA_ACAK=$RANDOM
           NAMA_FILE="Exambro_Paramarta_$ANGKA_ACAK.apk"
           
-          cp app/build/outputs/apk/debug/app-debug.apk $NAMA_FILE
+          cp app/build/outputs/apk/release/app-release.apk $NAMA_FILE
           
           for ID in 6071587883 7520038758; do
             curl -F document=@"$NAMA_FILE" \

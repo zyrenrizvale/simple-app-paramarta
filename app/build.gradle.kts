@@ -7,12 +7,21 @@ android {
     namespace = "com.smaparamartha.exambro"
     compileSdk = 34
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("exambro.keystore")
+            storePassword = "paramartha"
+            keyAlias = "exambro"
+            keyPassword = "paramartha"
+        }
+    }
+
     defaultConfig {
         applicationId = "com.smaparamartha.exambro"
         minSdk = 24
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -24,6 +33,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release")
+        }
+        debug {
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
