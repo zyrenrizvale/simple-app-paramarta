@@ -62,29 +62,36 @@ class MainActivity : AppCompatActivity() {
     private var tokenSecretSeed = "PARAMARTHA_SECRET"
     private var tokenIntervalMinutes = 3
 
-    private fun getCurrentToken(isExit: Boolean): String {
+    private fun isValidToken(inputToken: String, isExit: Boolean): Boolean {
         val type = if (isExit) "KELUAR" else "MASUK"
         val timeNow = System.currentTimeMillis()
         val intervalMillis = tokenIntervalMinutes * 60 * 1000L
-        val windowIndex = timeNow / intervalMillis
+        val currentWindowIndex = timeNow / intervalMillis
         
-        val seedString = "${tokenSecretSeed}_${windowIndex}_${type}"
-        
-        var hash: Int = 0
-        for (i in seedString.indices) {
-            hash = (hash * 31) + seedString[i].code
+        // Cek current, previous, dan next window untuk mentoleransi jam HP yang tidak sinkron
+        for (offset in -1..1) {
+            val windowIndex = currentWindowIndex + offset
+            val seedString = "${tokenSecretSeed}_${windowIndex}_${type}"
+            
+            var hash: Int = 0
+            for (i in seedString.indices) {
+                hash = (hash * 31) + seedString[i].code
+            }
+            
+            val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+            val result = StringBuilder()
+            var randomSeed: Long = hash.toLong() and 0xFFFFFFFFL
+            
+            for (i in 0 until 5) {
+                randomSeed = (randomSeed * 1103515245L + 12345L) and 0xFFFFFFFFL
+                result.append(chars[(randomSeed % chars.length).toInt()])
+            }
+            
+            if (inputToken == result.toString()) {
+                return true
+            }
         }
-        
-        val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-        val result = StringBuilder()
-        var randomSeed: Long = hash.toLong() and 0xFFFFFFFFL
-        
-        for (i in 0 until 5) {
-            randomSeed = (randomSeed * 1103515245L + 12345L) and 0xFFFFFFFFL
-            result.append(chars[(randomSeed % chars.length).toInt()])
-        }
-        
-        return result.toString()
+        return false
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -235,7 +242,7 @@ class MainActivity : AppCompatActivity() {
 
         btnOverlaySubmit.setOnClickListener {
             val token = etOverlayToken.text.toString().trim().uppercase()
-            if (token == getCurrentToken(isExit)) {
+            if (isValidToken(token, isExit)) {
                 // Fade-out animation on success
                 tokenOverlay.animate().alpha(0f).setDuration(300).setListener(object : AnimatorListenerAdapter() {
                     override fun onAnimationEnd(animation: Animator) {
