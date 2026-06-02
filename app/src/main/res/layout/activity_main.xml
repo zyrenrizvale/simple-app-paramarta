@@ -25,8 +25,8 @@
 
         <ImageView
             android:id="@+id/ivSignal"
-            android:layout_width="16dp"
-            android:layout_height="16dp"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
             android:layout_marginEnd="8dp"
             android:src="@drawable/ic_signal"
             app:tint="@color/text_white" />
@@ -43,16 +43,16 @@
 
         <ImageView
             android:id="@+id/ivBattery"
-            android:layout_width="16dp"
-            android:layout_height="16dp"
+            android:layout_width="24dp"
+            android:layout_height="24dp"
             android:layout_marginEnd="16dp"
             android:src="@drawable/ic_battery"
             app:tint="@color/text_white" />
 
         <ImageButton
             android:id="@+id/btnRotate"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
             android:layout_marginEnd="16dp"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_rotate"
@@ -60,8 +60,8 @@
 
         <ImageButton
             android:id="@+id/btnExit"
-            android:layout_width="20dp"
-            android:layout_height="20dp"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
             android:background="?android:attr/selectableItemBackgroundBorderless"
             android:src="@drawable/ic_exit"
             app:tint="@color/color_gold" />
@@ -164,8 +164,8 @@
             android:gravity="center"
             android:orientation="horizontal">
             <ImageView
-                android:layout_width="16dp"
-                android:layout_height="16dp"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
                 android:src="@drawable/ic_signal" 
                 app:tint="@color/text_gray"
                 android:layout_marginEnd="8dp"/>
