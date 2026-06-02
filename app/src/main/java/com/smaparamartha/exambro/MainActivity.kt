@@ -420,6 +420,14 @@ class MainActivity : AppCompatActivity() {
         } else {
             ivSignal.setImageResource(R.drawable.ic_signal_cellular)
         }
+
+        // Realtime icon strength based on network speed
+        when {
+            totalSpeed > 100 -> ivSignal.alpha = 1.0f
+            totalSpeed > 20 -> ivSignal.alpha = 0.7f
+            totalSpeed > 0 -> ivSignal.alpha = 0.4f
+            else -> ivSignal.alpha = 0.2f
+        }
     }
 
     override fun onDestroy() {
