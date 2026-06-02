@@ -58,8 +58,34 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnOverlaySubmit: Button
     private lateinit var btnOverlayCancel: Button
 
-    private val targetUrl = "https://elearningsmaparamartha.vercel.app/"
-    private val tokenAccess = "123"
+    private val targetUrl = "https://elearningsmaparamartha.vercel.app/exam.json"
+    private var tokenSecretSeed = "PARAMARTHA_SECRET"
+    private var tokenIntervalMinutes = 3
+
+    private fun getCurrentToken(isExit: Boolean): String {
+        val type = if (isExit) "KELUAR" else "MASUK"
+        val timeNow = System.currentTimeMillis()
+        val intervalMillis = tokenIntervalMinutes * 60 * 1000L
+        val windowIndex = timeNow / intervalMillis
+        
+        val seedString = "${tokenSecretSeed}_${windowIndex}_${type}"
+        
+        var hash: Int = 0
+        for (i in seedString.indices) {
+            hash = (hash * 31) + seedString[i].code
+        }
+        
+        val chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+        val result = StringBuilder()
+        var randomSeed: Long = hash.toLong() and 0xFFFFFFFFL
+        
+        for (i in 0 until 5) {
+            randomSeed = (randomSeed * 1103515245L + 12345L) and 0xFFFFFFFFL
+            result.append(chars[(randomSeed % chars.length).toInt()])
+        }
+        
+        return result.toString()
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -126,6 +152,13 @@ class MainActivity : AppCompatActivity() {
 
                     val json = JSONObject(response.toString())
                     
+                    if (json.has("secret_seed")) {
+                        tokenSecretSeed = json.getString("secret_seed")
+                    }
+                    if (json.has("interval_minutes")) {
+                        tokenIntervalMinutes = json.getInt("interval_minutes")
+                    }
+
                     if (json.has("ui_config")) {
                         val uiConfig = json.getJSONObject("ui_config")
                         val btnColor = if(uiConfig.has("btn_color")) uiConfig.getString("btn_color") else null
@@ -201,8 +234,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         btnOverlaySubmit.setOnClickListener {
-            val token = etOverlayToken.text.toString().trim()
-            if (token == tokenAccess) {
+            val token = etOverlayToken.text.toString().trim().uppercase()
+            if (token == getCurrentToken(isExit)) {
                 // Fade-out animation on success
                 tokenOverlay.animate().alpha(0f).setDuration(300).setListener(object : AnimatorListenerAdapter() {
                     override fun onAnimationEnd(animation: Animator) {
