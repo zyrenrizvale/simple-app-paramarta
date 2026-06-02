@@ -8,6 +8,9 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.Color
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.net.TrafficStats
 import android.os.BatteryManager
 import android.os.Bundle
 import android.os.Handler
@@ -41,10 +44,22 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
     private lateinit var tvBattery: TextView
+    private lateinit var tvNetworkSpeed: TextView
     private lateinit var ivBattery: ImageView
     private lateinit var ivSignal: ImageView
     private lateinit var btnRotate: ImageButton
     private lateinit var btnExit: ImageButton
+
+    // Network Speed Monitor
+    private var lastTotalRxBytes: Long = 0
+    private var lastTotalTxBytes: Long = 0
+    private val speedHandler = Handler(Looper.getMainLooper())
+    private val speedRunnable = object : Runnable {
+        override fun run() {
+            updateNetworkSpeedAndType()
+            speedHandler.postDelayed(this, 1000)
+        }
+    }
 
     // Rotation Lock State
     private var isRotationLocked = false
@@ -101,6 +116,7 @@ class MainActivity : AppCompatActivity() {
 
         webView = findViewById(R.id.webView)
         tvBattery = findViewById(R.id.tvBattery)
+        tvNetworkSpeed = findViewById(R.id.tvNetworkSpeed)
         ivBattery = findViewById(R.id.ivBattery)
         ivSignal = findViewById(R.id.ivSignal)
         btnRotate = findViewById(R.id.btnRotate)
@@ -324,20 +340,31 @@ class MainActivity : AppCompatActivity() {
         override fun onReceive(context: Context?, intent: Intent?) {
             val level = intent?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
             val scale = intent?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+            val status = intent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+            
+            val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING || status == BatteryManager.BATTERY_STATUS_FULL
+            
             if (level != -1 && scale != -1) {
                 val batteryPct = level * 100 / scale
                 tvBattery.text = "$batteryPct%"
                 
-                // Real-time battery logic
-                if (batteryPct <= 20) {
-                    ivBattery.setColorFilter(Color.parseColor("#EF4444")) // Red
-                    tvBattery.setTextColor(Color.parseColor("#EF4444"))
-                } else if (batteryPct <= 50) {
-                    ivBattery.setColorFilter(Color.parseColor("#FBBF24")) // Yellow
-                    tvBattery.setTextColor(Color.parseColor("#FBBF24"))
+                if (isCharging) {
+                    ivBattery.setImageResource(R.drawable.ic_battery_charging)
+                    ivBattery.setColorFilter(Color.parseColor("#10B981")) // Green for charging
+                    tvBattery.setTextColor(Color.parseColor("#10B981"))
                 } else {
-                    ivBattery.setColorFilter(Color.WHITE)
-                    tvBattery.setTextColor(Color.WHITE)
+                    ivBattery.setImageResource(R.drawable.ic_battery_modern)
+                    // Real-time battery logic
+                    if (batteryPct <= 20) {
+                        ivBattery.setColorFilter(Color.parseColor("#EF4444")) // Red
+                        tvBattery.setTextColor(Color.parseColor("#EF4444"))
+                    } else if (batteryPct <= 50) {
+                        ivBattery.setColorFilter(Color.parseColor("#FBBF24")) // Yellow
+                        tvBattery.setTextColor(Color.parseColor("#FBBF24"))
+                    } else {
+                        ivBattery.setColorFilter(Color.WHITE)
+                        tvBattery.setTextColor(Color.WHITE)
+                    }
                 }
             }
         }
@@ -349,28 +376,55 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun registerSignalListener() {
+        // Start network speed monitoring
+        lastTotalRxBytes = TrafficStats.getTotalRxBytes()
+        lastTotalTxBytes = TrafficStats.getTotalTxBytes()
+        speedHandler.post(speedRunnable)
+
         val telephonyManager = getSystemService(Context.TELEPHONY_SERVICE) as TelephonyManager
         telephonyManager.listen(object : PhoneStateListener() {
             override fun onSignalStrengthsChanged(signalStrength: SignalStrength?) {
                 super.onSignalStrengthsChanged(signalStrength)
-                signalStrength?.let {
-                    val level = it.level // Returns 0 to 4
-                    // Real-time signal dynamic alpha
-                    when (level) {
-                        0 -> ivSignal.alpha = 0.2f
-                        1 -> ivSignal.alpha = 0.4f
-                        2 -> ivSignal.alpha = 0.6f
-                        3 -> ivSignal.alpha = 0.8f
-                        4 -> ivSignal.alpha = 1.0f
-                        else -> ivSignal.alpha = 1.0f
-                    }
-                }
+                // We update alpha dynamically in updateNetworkSpeedAndType instead
             }
         }, PhoneStateListener.LISTEN_SIGNAL_STRENGTHS)
     }
 
+    private fun updateNetworkSpeedAndType() {
+        val currentRxBytes = TrafficStats.getTotalRxBytes()
+        val currentTxBytes = TrafficStats.getTotalTxBytes()
+
+        var rxSpeed = 0L
+        var txSpeed = 0L
+
+        if (lastTotalRxBytes != TrafficStats.UNSUPPORTED.toLong() && currentRxBytes != TrafficStats.UNSUPPORTED.toLong()) {
+            rxSpeed = (currentRxBytes - lastTotalRxBytes) / 1024
+        }
+        if (lastTotalTxBytes != TrafficStats.UNSUPPORTED.toLong() && currentTxBytes != TrafficStats.UNSUPPORTED.toLong()) {
+            txSpeed = (currentTxBytes - lastTotalTxBytes) / 1024
+        }
+
+        lastTotalRxBytes = currentRxBytes
+        lastTotalTxBytes = currentTxBytes
+
+        val totalSpeed = rxSpeed + txSpeed
+        tvNetworkSpeed.text = "$totalSpeed KB/s"
+
+        // Determine network type
+        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+        val activeNetwork = cm.activeNetwork
+        val networkCapabilities = cm.getNetworkCapabilities(activeNetwork)
+
+        if (networkCapabilities != null && networkCapabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
+            ivSignal.setImageResource(R.drawable.ic_signal_wifi)
+        } else {
+            ivSignal.setImageResource(R.drawable.ic_signal_cellular)
+        }
+    }
+
     override fun onDestroy() {
         super.onDestroy()
+        speedHandler.removeCallbacks(speedRunnable)
         try {
             unregisterReceiver(batteryReceiver)
         } catch (e: Exception) {

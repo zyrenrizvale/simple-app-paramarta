@@ -28,8 +28,18 @@
             android:layout_width="24dp"
             android:layout_height="24dp"
             android:layout_marginEnd="8dp"
-            android:src="@drawable/ic_signal"
+            android:src="@drawable/ic_signal_cellular"
             app:tint="@color/text_white" />
+
+        <TextView
+            android:id="@+id/tvNetworkSpeed"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="16dp"
+            android:text="0 KB/s"
+            android:textColor="@color/text_white"
+            android:textSize="12sp"
+            android:textStyle="bold" />
 
         <TextView
             android:id="@+id/tvBattery"
@@ -46,7 +56,7 @@
             android:layout_width="24dp"
             android:layout_height="24dp"
             android:layout_marginEnd="16dp"
-            android:src="@drawable/ic_battery"
+            android:src="@drawable/ic_battery_modern"
             app:tint="@color/text_white" />
 
         <ImageButton
@@ -55,7 +65,7 @@
             android:layout_height="32dp"
             android:layout_marginEnd="16dp"
             android:background="?android:attr/selectableItemBackgroundBorderless"
-            android:src="@drawable/ic_rotate"
+            android:src="@drawable/ic_rotate_modern"
             app:tint="@color/text_white" />
 
         <ImageButton
@@ -63,7 +73,7 @@
             android:layout_width="32dp"
             android:layout_height="32dp"
             android:background="?android:attr/selectableItemBackgroundBorderless"
-            android:src="@drawable/ic_exit"
+            android:src="@drawable/ic_exit_modern"
             app:tint="@color/color_gold" />
     </LinearLayout>
 
@@ -166,7 +176,7 @@
             <ImageView
                 android:layout_width="20dp"
                 android:layout_height="20dp"
-                android:src="@drawable/ic_signal" 
+                android:src="@drawable/ic_signal_cellular" 
                 app:tint="@color/text_gray"
                 android:layout_marginEnd="8dp"/>
             <TextView
