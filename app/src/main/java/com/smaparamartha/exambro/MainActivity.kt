@@ -75,7 +75,7 @@ class MainActivity : AppCompatActivity() {
 
     private val REQUEST_MEDIA_PROJECTION = 1001
 
-    private val targetUrl = "https://elearningsmaparamartha.vercel.app/"
+    private val targetUrl = "https://paramartaapp.vercel.app/"
     private var tokenSecretSeed = "PARAMARTHA_SECRET"
     private var tokenIntervalMinutes = 3
 
@@ -322,9 +322,9 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 // Setup callback to inject frame to JS
-                ScreenCaptureService.frameCallback = { base64 ->
+                ScreenCaptureService.frameCallback = { args ->
                     runOnUiThread {
-                        webView.evaluateJavascript("if(window.updateAndroidFrame) { window.updateAndroidFrame('$base64'); }", null)
+                        webView.evaluateJavascript("if(window.updateAndroidFrame) { window.updateAndroidFrame($args); }", null)
                     }
                 }
 
