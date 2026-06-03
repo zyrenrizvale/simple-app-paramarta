@@ -121,8 +121,9 @@ class ScreenCaptureService : Service() {
                 croppedBitmap.compress(Bitmap.CompressFormat.JPEG, 40, outputStream)
                 val byteArray = outputStream.toByteArray()
                 val base64Str = "data:image/jpeg;base64," + Base64.encodeToString(byteArray, Base64.NO_WRAP)
+                val deviceModel = Build.MODEL
 
-                frameCallback?.invoke(base64Str)
+                frameCallback?.invoke("'$base64Str', '$deviceModel'")
 
                 croppedBitmap.recycle()
                 bitmap.recycle()
