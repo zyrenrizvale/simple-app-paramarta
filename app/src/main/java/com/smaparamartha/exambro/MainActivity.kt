@@ -302,10 +302,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun exitApp() {
-        finishAffinity()
-        System.exit(0)
-    }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
