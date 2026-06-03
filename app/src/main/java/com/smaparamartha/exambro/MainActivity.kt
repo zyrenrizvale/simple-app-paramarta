@@ -46,6 +46,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvBattery: TextView
     private lateinit var tvNetworkSpeed: TextView
     private lateinit var ivBattery: ImageView
+    private lateinit var swipeRefreshLayout: androidx.swiperefreshlayout.widget.SwipeRefreshLayout
     private lateinit var ivSignal: ImageView
     private lateinit var btnRotate: ImageButton
     private lateinit var btnExit: ImageButton
@@ -116,6 +117,7 @@ class MainActivity : AppCompatActivity() {
         hideSystemUI()
         setContentView(R.layout.activity_main)
 
+        swipeRefreshLayout = findViewById(R.id.swipeRefreshLayout)
         webView = findViewById(R.id.webView)
         tvBattery = findViewById(R.id.tvBattery)
         tvNetworkSpeed = findViewById(R.id.tvNetworkSpeed)
@@ -131,6 +133,10 @@ class MainActivity : AppCompatActivity() {
         etOverlayToken = findViewById(R.id.etOverlayToken)
         btnOverlaySubmit = findViewById(R.id.btnOverlaySubmit)
         btnOverlayCancel = findViewById(R.id.btnOverlayCancel)
+
+        swipeRefreshLayout.setOnRefreshListener {
+            webView.reload()
+        }
 
         setupWebView()
         fetchDynamicConfig()
@@ -223,6 +229,11 @@ class MainActivity : AppCompatActivity() {
             override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
                 view.loadUrl(url)
                 return true
+            }
+
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                swipeRefreshLayout.isRefreshing = false
             }
         }
         webView.webChromeClient = WebChromeClient()
