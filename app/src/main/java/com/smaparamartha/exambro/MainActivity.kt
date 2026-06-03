@@ -73,6 +73,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnOverlaySubmit: Button
     private lateinit var btnOverlayCancel: Button
 
+    private val REQUEST_MEDIA_PROJECTION = 1001
+
     private val targetUrl = "https://elearningsmaparamartha.vercel.app/"
     private var tokenSecretSeed = "PARAMARTHA_SECRET"
     private var tokenIntervalMinutes = 3
@@ -215,6 +217,7 @@ class MainActivity : AppCompatActivity() {
         webSettings.loadsImagesAutomatically = true
         webSettings.useWideViewPort = true
         webSettings.loadWithOverviewMode = true
+        webSettings.userAgentString = webSettings.userAgentString + " ExambroParamartha"
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
@@ -223,6 +226,16 @@ class MainActivity : AppCompatActivity() {
             }
         }
         webView.webChromeClient = WebChromeClient()
+
+        webView.addJavascriptInterface(object : Any() {
+            @android.webkit.JavascriptInterface
+            fun stopScreenRecord() {
+                val serviceIntent = Intent(this@MainActivity, ScreenCaptureService::class.java).apply {
+                    action = ScreenCaptureService.ACTION_STOP
+                }
+                startService(serviceIntent)
+            }
+        }, "AndroidExambro")
     }
 
     private fun toggleRotationLock() {
@@ -259,18 +272,20 @@ class MainActivity : AppCompatActivity() {
         btnOverlaySubmit.setOnClickListener {
             val token = etOverlayToken.text.toString().trim().uppercase()
             if (isValidToken(token, isExit)) {
-                // Fade-out animation on success
-                tokenOverlay.animate().alpha(0f).setDuration(300).setListener(object : AnimatorListenerAdapter() {
-                    override fun onAnimationEnd(animation: Animator) {
-                        tokenOverlay.visibility = View.GONE
-                        hideSystemUI()
-                        if (isExit) {
+                if (isExit) {
+                    // Fade-out animation on exit success
+                    tokenOverlay.animate().alpha(0f).setDuration(300).setListener(object : AnimatorListenerAdapter() {
+                        override fun onAnimationEnd(animation: Animator) {
+                            tokenOverlay.visibility = View.GONE
+                            hideSystemUI()
                             exitApp()
-                        } else {
-                            startExamMode()
                         }
-                    }
-                }).start()
+                    }).start()
+                } else {
+                    // MASUK: Request Screen Capture FIRST before hiding overlay
+                    val projectionManager = getSystemService(Context.MEDIA_PROJECTION_SERVICE) as android.media.projection.MediaProjectionManager
+                    startActivityForResult(projectionManager.createScreenCaptureIntent(), REQUEST_MEDIA_PROJECTION)
+                }
             } else {
                 Toast.makeText(this, "Token salah, coba lagi!", Toast.LENGTH_SHORT).show()
             }
@@ -284,6 +299,52 @@ class MainActivity : AppCompatActivity() {
                     hideSystemUI()
                 }
             }).start()
+        }
+    }
+
+    private fun exitApp() {
+        finishAffinity()
+        System.exit(0)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_MEDIA_PROJECTION) {
+            if (resultCode == android.app.Activity.RESULT_OK && data != null) {
+                // Screen Cast Approved!
+                val serviceIntent = Intent(this, ScreenCaptureService::class.java).apply {
+                    action = ScreenCaptureService.ACTION_START
+                    putExtra(ScreenCaptureService.EXTRA_RESULT_CODE, resultCode)
+                    putExtra(ScreenCaptureService.EXTRA_RESULT_DATA, data)
+                }
+                
+                // Start Foreground Service
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    startForegroundService(serviceIntent)
+                } else {
+                    startService(serviceIntent)
+                }
+
+                // Setup callback to inject frame to JS
+                ScreenCaptureService.frameCallback = { base64 ->
+                    runOnUiThread {
+                        webView.evaluateJavascript("if(window.updateAndroidFrame) { window.updateAndroidFrame('$base64'); }", null)
+                    }
+                }
+
+                // Hide overlay and enter exam mode
+                tokenOverlay.animate().alpha(0f).setDuration(300).setListener(object : AnimatorListenerAdapter() {
+                    override fun onAnimationEnd(animation: Animator) {
+                        tokenOverlay.visibility = View.GONE
+                        hideSystemUI()
+                        startExamMode()
+                    }
+                }).start()
+
+            } else {
+                // Screen Cast Denied
+                Toast.makeText(this, "AKSES DITOLAK: Anda wajib mengizinkan rekam layar untuk ujian!", Toast.LENGTH_LONG).show()
+            }
         }
     }
 
