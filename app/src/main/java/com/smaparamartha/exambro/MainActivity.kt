@@ -166,7 +166,7 @@ class MainActivity : AppCompatActivity() {
     private fun fetchDynamicConfig() {
         thread {
             try {
-                val url = URL("https://elearningsmaparamartha.vercel.app/exam.json")
+                val url = URL("https://paramartaapp.vercel.app/exam.json")
                 val connection = url.openConnection() as HttpURLConnection
                 connection.requestMethod = "GET"
                 connection.connectTimeout = 5000
