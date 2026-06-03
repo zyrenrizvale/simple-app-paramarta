@@ -361,6 +361,13 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             e.printStackTrace()
         }
+        
+        // Hentikan Screen Capture Service secara eksplisit agar rekaman tidak berjalan di background
+        val stopIntent = Intent(this, ScreenCaptureService::class.java).apply {
+            action = ScreenCaptureService.ACTION_STOP
+        }
+        startService(stopIntent)
+
         finishAffinity()
     }
 
