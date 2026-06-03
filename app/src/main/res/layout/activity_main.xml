@@ -6,18 +6,6 @@
     android:layout_height="match_parent"
     android:background="@color/bg_dark">
 
-    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-        android:id="@+id/swipeRefreshLayout"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent">
-        
-        <WebView
-            android:id="@+id/webView"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent" />
-            
-    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
-
     <!-- Floating Header -->
     <LinearLayout
         android:id="@+id/customHeader"
@@ -83,6 +71,21 @@
             android:src="@drawable/ic_exit_modern"
             app:tint="@color/color_gold" />
     </LinearLayout>
+
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipeRefreshLayout"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_below="@id/customHeader">
+        
+        <WebView
+            android:id="@+id/webView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+            
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
+
+
 
     <!-- Token Fullscreen Overlay -->
     <RelativeLayout
