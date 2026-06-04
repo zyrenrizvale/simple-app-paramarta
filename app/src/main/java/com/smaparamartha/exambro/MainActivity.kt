@@ -420,6 +420,16 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onPause() {
+        super.onPause()
+        // Jika aplikasi di-minimize atau ditinggalkan saat ujian berlangsung (overlay token tidak terlihat)
+        // Maka paksa tampilkan overlay token masuk lagi agar siswa terkunci.
+        if (tokenOverlay.visibility == View.GONE && splashScreen.visibility == View.GONE) {
+            showTokenOverlay(isExit = false)
+            Toast.makeText(this, "Aplikasi diminimize! Ujian dikunci.", Toast.LENGTH_LONG).show()
+        }
+    }
+
     private fun hideSystemUI() {
         window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
                 or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
