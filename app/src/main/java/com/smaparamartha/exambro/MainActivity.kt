@@ -83,7 +83,11 @@ class MainActivity : AppCompatActivity() {
 
     private val REQUEST_MEDIA_PROJECTION = 1001
 
-    private val targetUrl = "https://paramartaapp.vercel.app/"
+    private var targetUrl = "https://paramartaapp.vercel.app/"
+    
+    private fun getTargetUrlWithCacheBuster(): String {
+        return targetUrl + "?v=" + System.currentTimeMillis()
+    }
     private var tokenSecretSeed = "PARAMARTHA_SECRET"
     private var tokenIntervalMinutes = 3
 
@@ -388,7 +392,7 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             e.printStackTrace()
         }
-        webView.loadUrl(targetUrl)
+        webView.loadUrl(getTargetUrlWithCacheBuster())
         registerBatteryReceiver()
         registerSignalListener()
     }
