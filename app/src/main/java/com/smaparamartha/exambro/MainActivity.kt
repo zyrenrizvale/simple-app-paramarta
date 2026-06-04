@@ -83,6 +83,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnOverlayCancel: Button
 
     private val REQUEST_MEDIA_PROJECTION = 1001
+    private val REQUEST_NETWORK_SETTINGS = 1003
 
     private var targetUrl = "https://paramartaapp.vercel.app/"
     
@@ -168,22 +169,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         btnNetwork.setOnClickListener {
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                try {
-                    val panelIntent = Intent(android.provider.Settings.Panel.ACTION_INTERNET_CONNECTIVITY)
-                    startActivity(panelIntent)
-                } catch (e: Exception) {
-                    val intent = Intent(android.provider.Settings.ACTION_WIFI_SETTINGS)
-                    startActivity(intent)
-                }
-            } else {
-                try {
-                    val intent = Intent(android.provider.Settings.ACTION_WIFI_SETTINGS)
-                    startActivity(intent)
-                } catch (e: Exception) {
-                    e.printStackTrace()
-                }
-            }
+            showNetworkDialog()
         }
 
         // Delay splash screen (increased to 4 seconds)
@@ -365,10 +351,61 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun showNetworkDialog() {
+        val dialogView = layoutInflater.inflate(R.layout.dialog_network, null)
+        val dialog = android.app.AlertDialog.Builder(this)
+            .setView(dialogView)
+            .create()
+
+        dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+
+        val btnOpenSettings = dialogView.findViewById<Button>(R.id.btnOpenSettings)
+        val btnCancelSettings = dialogView.findViewById<Button>(R.id.btnCancelSettings)
+
+        btnOpenSettings.setOnClickListener {
+            dialog.dismiss()
+            // Buka gembok sesaat
+            try {
+                stopLockTask()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+
+            // Panggil pengaturan Android
+            val intent = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                Intent(android.provider.Settings.Panel.ACTION_INTERNET_CONNECTIVITY)
+            } else {
+                Intent(android.provider.Settings.ACTION_WIFI_SETTINGS)
+            }
+            try {
+                startActivityForResult(intent, REQUEST_NETWORK_SETTINGS)
+            } catch (e: Exception) {
+                val fallbackIntent = Intent(android.provider.Settings.ACTION_SETTINGS)
+                startActivityForResult(fallbackIntent, REQUEST_NETWORK_SETTINGS)
+            }
+        }
+
+        btnCancelSettings.setOnClickListener {
+            dialog.dismiss()
+            hideSystemUI()
+        }
+
+        dialog.show()
+    }
+
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == REQUEST_MEDIA_PROJECTION) {
+        if (requestCode == REQUEST_NETWORK_SETTINGS) {
+            // Pengguna baru saja kembali dari layar pengaturan jaringan
+            // Langsung kunci layar kembali
+            try {
+                startLockTask()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            hideSystemUI()
+        } else if (requestCode == REQUEST_MEDIA_PROJECTION) {
             if (resultCode == android.app.Activity.RESULT_OK && data != null) {
                 // Screen Cast Approved!
                 val serviceIntent = Intent(this, ScreenCaptureService::class.java).apply {
