@@ -57,6 +57,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var ivSignal: ImageView
     private lateinit var btnRotate: ImageButton
     private lateinit var btnExit: ImageButton
+    private lateinit var btnNetwork: ImageButton
 
     // Network Speed Monitor
     private var lastTotalRxBytes: Long = 0
@@ -141,6 +142,7 @@ class MainActivity : AppCompatActivity() {
         ivSignal = findViewById(R.id.ivSignal)
         btnRotate = findViewById(R.id.btnRotate)
         btnExit = findViewById(R.id.btnExit)
+        btnNetwork = findViewById(R.id.btnNetwork)
 
         tokenOverlay = findViewById(R.id.tokenOverlay)
         splashScreen = findViewById(R.id.splashScreen)
@@ -163,6 +165,25 @@ class MainActivity : AppCompatActivity() {
 
         btnExit.setOnClickListener {
             showTokenOverlay(isExit = true)
+        }
+
+        btnNetwork.setOnClickListener {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                try {
+                    val panelIntent = Intent(android.provider.Settings.Panel.ACTION_INTERNET_CONNECTIVITY)
+                    startActivity(panelIntent)
+                } catch (e: Exception) {
+                    val intent = Intent(android.provider.Settings.ACTION_WIFI_SETTINGS)
+                    startActivity(intent)
+                }
+            } else {
+                try {
+                    val intent = Intent(android.provider.Settings.ACTION_WIFI_SETTINGS)
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
         }
 
         // Delay splash screen (increased to 4 seconds)
