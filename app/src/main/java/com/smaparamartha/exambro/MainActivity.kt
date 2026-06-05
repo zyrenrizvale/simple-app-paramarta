@@ -366,6 +366,8 @@ class MainActivity : AppCompatActivity() {
         val btnCancelSettings = dialogView.findViewById<Button>(R.id.btnCancelSettings)
         val llWifiContainer = dialogView.findViewById<LinearLayout>(R.id.llWifiContainer)
         val pbWifiLoading = dialogView.findViewById<ProgressBar>(R.id.pbWifiLoading)
+        val llWifiOffWarning = dialogView.findViewById<LinearLayout>(R.id.llWifiOffWarning)
+        val btnTurnOnWifi = dialogView.findViewById<Button>(R.id.btnTurnOnWifi)
 
         val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
 
@@ -379,10 +381,33 @@ class MainActivity : AppCompatActivity() {
             llWifiContainer.removeAllViews()
 
             if (!wifiManager.isWifiEnabled) {
-                Toast.makeText(this@MainActivity, "Pastikan WiFi di HP Anda menyala!", Toast.LENGTH_SHORT).show()
-                try {
-                    wifiManager.isWifiEnabled = true
-                } catch (e: Exception) {}
+                llWifiOffWarning.visibility = View.VISIBLE
+                btnRefreshWifi.visibility = View.GONE
+                
+                btnTurnOnWifi.setOnClickListener {
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                        Toast.makeText(this@MainActivity, "Membuka saklar WiFi bawaan Android...", Toast.LENGTH_SHORT).show()
+                        try {
+                            stopLockTask()
+                            val panelIntent = Intent(android.provider.Settings.Panel.ACTION_WIFI)
+                            startActivityForResult(panelIntent, REQUEST_NETWORK_SETTINGS)
+                        } catch (e: Exception) {
+                            e.printStackTrace()
+                        }
+                    } else {
+                        try {
+                            wifiManager.isWifiEnabled = true
+                            Toast.makeText(this@MainActivity, "WiFi dihidupkan...", Toast.LENGTH_SHORT).show()
+                            Handler(Looper.getMainLooper()).postDelayed({
+                                scanAndPopulate()
+                            }, 2000)
+                        } catch (e: Exception) {}
+                    }
+                }
+                return
+            } else {
+                llWifiOffWarning.visibility = View.GONE
+                btnRefreshWifi.visibility = View.VISIBLE
             }
 
             try {

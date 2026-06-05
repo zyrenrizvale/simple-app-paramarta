@@ -17,6 +17,36 @@
         android:textStyle="bold"
         android:layout_marginBottom="16dp" />
 
+    <LinearLayout
+        android:id="@+id/llWifiOffWarning"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="center"
+        android:visibility="gone"
+        android:background="@drawable/bg_edittext"
+        android:padding="16dp"
+        android:layout_marginBottom="16dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⚠️ WiFi Anda Mati"
+            android:textColor="#EF4444"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:layout_marginBottom="8dp"/>
+
+        <Button
+            android:id="@+id/btnTurnOnWifi"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:background="@drawable/bg_button"
+            android:text="Aktifkan WiFi Sekarang"
+            android:textColor="#000000"
+            android:textStyle="bold" />
+    </LinearLayout>
+
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="0dp"
