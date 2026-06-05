@@ -30,6 +30,7 @@ import android.provider.Settings
 import android.app.DownloadManager
 import android.net.Uri
 import android.os.Environment
+import android.app.ProgressDialog
 import androidx.core.content.FileProvider
 import java.io.File
 import android.widget.Button
@@ -218,7 +219,7 @@ class MainActivity : AppCompatActivity() {
                     val json = JSONObject(response.toString())
                     
                     if (json.has("targetUrl")) {
-                        targetUrl = json.getString("targetUrl")
+                        targetUrl = decrypt(json.getString("targetUrl"))
                     }
 
                     if (json.has("latest_version_code")) {
@@ -226,7 +227,7 @@ class MainActivity : AppCompatActivity() {
                         val currentVersionCode = packageManager.getPackageInfo(packageName, 0).versionCode
                         if (latestVersion > currentVersionCode) {
                             val changelog = if (json.has("changelog")) json.getString("changelog") else "Pembaruan penting tersedia."
-                            val apkUrl = if (json.has("apk_url")) json.getString("apk_url") else ""
+                            val apkUrl = if (json.has("apk_url")) decrypt(json.getString("apk_url")) else ""
                             
                             if (apkUrl.isNotEmpty()) {
                                 runOnUiThread { showForceUpdateDialog(changelog, apkUrl) }
@@ -584,11 +585,22 @@ class MainActivity : AppCompatActivity() {
     }
 
     private var downloadId: Long = -1
+    private var progressDialog: ProgressDialog? = null
 
     private fun downloadAndInstallUpdate(apkUrl: String) {
-        Toast.makeText(this, "Mengunduh pembaruan...", Toast.LENGTH_LONG).show()
+        progressDialog = ProgressDialog(this).apply {
+            setTitle("Mengunduh Pembaruan")
+            setMessage("Mohon tunggu, jangan tutup aplikasi...")
+            setProgressStyle(ProgressDialog.STYLE_HORIZONTAL)
+            setCancelable(false)
+            max = 100
+            show()
+        }
 
         val fileName = "Exambro_Update.apk"
+        val file = File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), fileName)
+        if (file.exists()) file.delete() // Hapus APK lama jika ada
+
         val request = DownloadManager.Request(Uri.parse(apkUrl))
         request.setTitle("Mengunduh Exambro")
         request.setDescription("Sedang mengunduh pembaruan terbaru...")
@@ -598,10 +610,43 @@ class MainActivity : AppCompatActivity() {
         val downloadManager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         downloadId = downloadManager.enqueue(request)
 
+        Thread {
+            var downloading = true
+            while (downloading) {
+                val q = DownloadManager.Query()
+                q.setFilterById(downloadId)
+                val cursor = downloadManager.query(q)
+                if (cursor != null && cursor.moveToFirst()) {
+                    val bytesDownloadedIndex = cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
+                    val bytesTotalIndex = cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
+                    
+                    if (bytesDownloadedIndex >= 0 && bytesTotalIndex >= 0) {
+                        val bytesDownloaded = cursor.getInt(bytesDownloadedIndex)
+                        val bytesTotal = cursor.getInt(bytesTotalIndex)
+                        if (bytesTotal > 0) {
+                            val progress = ((bytesDownloaded * 100L) / bytesTotal).toInt()
+                            runOnUiThread { progressDialog?.progress = progress }
+                        }
+                    }
+                    
+                    val statusIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
+                    if (statusIndex >= 0) {
+                        val status = cursor.getInt(statusIndex)
+                        if (status == DownloadManager.STATUS_SUCCESSFUL || status == DownloadManager.STATUS_FAILED) {
+                            downloading = false
+                        }
+                    }
+                    cursor.close()
+                }
+                Thread.sleep(500)
+            }
+        }.start()
+
         val onComplete = object : BroadcastReceiver() {
             override fun onReceive(context: Context?, intent: Intent?) {
                 val id = intent?.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
                 if (downloadId == id) {
+                    runOnUiThread { progressDialog?.dismiss() }
                     Toast.makeText(this@MainActivity, "Unduhan selesai. Memulai instalasi...", Toast.LENGTH_SHORT).show()
                     installApk(fileName)
                     unregisterReceiver(this)
@@ -639,6 +684,20 @@ class MainActivity : AppCompatActivity() {
     private fun registerBatteryReceiver() {
         val filter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
         registerReceiver(batteryReceiver, filter)
+    }
+
+    private fun decrypt(input: String): String {
+        try {
+            val decoded = android.util.Base64.decode(input, android.util.Base64.DEFAULT)
+            val result = ByteArray(decoded.size)
+            val key = "PARAMARTHA"
+            for (i in decoded.indices) {
+                result[i] = (decoded[i].toInt() xor key[i % key.length].toInt()).toByte()
+            }
+            return String(result)
+        } catch (e: Exception) {
+            return input
+        }
     }
 
     private fun registerSignalListener() {
