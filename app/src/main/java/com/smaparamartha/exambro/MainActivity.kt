@@ -230,7 +230,8 @@ class MainActivity : AppCompatActivity() {
                             val apkUrl = if (json.has("apk_url")) decrypt(json.getString("apk_url")) else ""
                             
                             if (apkUrl.isNotEmpty()) {
-                                runOnUiThread { showForceUpdateDialog(changelog, apkUrl) }
+                                val safeUrl = apkUrl.trim().replace(" ", "%20")
+                                runOnUiThread { showForceUpdateDialog(changelog, safeUrl) }
                                 return@thread
                             }
                         }
@@ -687,6 +688,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun decrypt(input: String): String {
+        if (input.startsWith("http")) return input
         try {
             val decoded = android.util.Base64.decode(input, android.util.Base64.DEFAULT)
             val result = ByteArray(decoded.size)
