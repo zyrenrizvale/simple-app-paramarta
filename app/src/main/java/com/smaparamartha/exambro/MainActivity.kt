@@ -32,8 +32,6 @@ import android.widget.LinearLayout
 import android.widget.RelativeLayout
 import android.widget.TextView
 import android.widget.Toast
-import android.widget.ProgressBar
-import android.net.wifi.WifiManager
 import androidx.appcompat.app.AppCompatActivity
 import org.json.JSONObject
 import java.io.BufferedReader
@@ -59,7 +57,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var ivSignal: ImageView
     private lateinit var btnRotate: ImageButton
     private lateinit var btnExit: ImageButton
-    private lateinit var btnNetwork: ImageButton
 
     // Network Speed Monitor
     private var lastTotalRxBytes: Long = 0
@@ -85,8 +82,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnOverlayCancel: Button
 
     private val REQUEST_MEDIA_PROJECTION = 1001
-    private val REQUEST_NETWORK_SETTINGS = 1003
-    private val REQUEST_LOCATION_PERMISSION = 1004
 
     private var targetUrl = "https://paramartaapp.vercel.app/"
     
@@ -146,7 +141,6 @@ class MainActivity : AppCompatActivity() {
         ivSignal = findViewById(R.id.ivSignal)
         btnRotate = findViewById(R.id.btnRotate)
         btnExit = findViewById(R.id.btnExit)
-        btnNetwork = findViewById(R.id.btnNetwork)
 
         tokenOverlay = findViewById(R.id.tokenOverlay)
         splashScreen = findViewById(R.id.splashScreen)
@@ -169,10 +163,6 @@ class MainActivity : AppCompatActivity() {
 
         btnExit.setOnClickListener {
             showTokenOverlay(isExit = true)
-        }
-
-        btnNetwork.setOnClickListener {
-            showNetworkDialog()
         }
 
         // Delay splash screen (increased to 4 seconds)
@@ -354,169 +344,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun showNetworkDialog() {
-        val dialogView = layoutInflater.inflate(R.layout.dialog_network, null)
-        val dialog = android.app.AlertDialog.Builder(this)
-            .setView(dialogView)
-            .create()
-
-        dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
-
-        val btnRefreshWifi = dialogView.findViewById<Button>(R.id.btnRefreshWifi)
-        val btnCancelSettings = dialogView.findViewById<Button>(R.id.btnCancelSettings)
-        val llWifiContainer = dialogView.findViewById<LinearLayout>(R.id.llWifiContainer)
-        val pbWifiLoading = dialogView.findViewById<ProgressBar>(R.id.pbWifiLoading)
-        val llWifiOffWarning = dialogView.findViewById<LinearLayout>(R.id.llWifiOffWarning)
-        val btnTurnOnWifi = dialogView.findViewById<Button>(R.id.btnTurnOnWifi)
-
-        val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
-
-        fun scanAndPopulate() {
-            if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                ActivityCompat.requestPermissions(this@MainActivity, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), REQUEST_LOCATION_PERMISSION)
-                return
-            }
-
-            pbWifiLoading.visibility = View.VISIBLE
-            llWifiContainer.removeAllViews()
-
-            if (!wifiManager.isWifiEnabled) {
-                llWifiOffWarning.visibility = View.VISIBLE
-                btnRefreshWifi.visibility = View.GONE
-                
-                btnTurnOnWifi.setOnClickListener {
-                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                        Toast.makeText(this@MainActivity, "Membuka saklar WiFi bawaan Android...", Toast.LENGTH_SHORT).show()
-                        try {
-                            stopLockTask()
-                            val panelIntent = Intent(android.provider.Settings.Panel.ACTION_WIFI)
-                            startActivityForResult(panelIntent, REQUEST_NETWORK_SETTINGS)
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
-                    } else {
-                        try {
-                            wifiManager.isWifiEnabled = true
-                            Toast.makeText(this@MainActivity, "WiFi dihidupkan...", Toast.LENGTH_SHORT).show()
-                            Handler(Looper.getMainLooper()).postDelayed({
-                                scanAndPopulate()
-                            }, 2000)
-                        } catch (e: Exception) {}
-                    }
-                }
-                return
-            } else {
-                llWifiOffWarning.visibility = View.GONE
-                btnRefreshWifi.visibility = View.VISIBLE
-            }
-
-            try {
-                wifiManager.startScan()
-            } catch (e: Exception) {}
-
-            Handler(Looper.getMainLooper()).postDelayed({
-                pbWifiLoading.visibility = View.GONE
-                try {
-                    val results = wifiManager.scanResults
-                    val uniqueResults = results.distinctBy { it.SSID }.filter { it.SSID.isNotEmpty() }
-                    
-                    if (uniqueResults.isEmpty()) {
-                        val tvEmpty = TextView(this@MainActivity)
-                        tvEmpty.text = "Tidak ada WiFi ditemukan. Coba lagi."
-                        tvEmpty.setTextColor(Color.WHITE)
-                        llWifiContainer.addView(tvEmpty)
-                    }
-
-                    for (result in uniqueResults) {
-                        val itemView = layoutInflater.inflate(R.layout.item_wifi, null)
-                        val tvWifiSsid = itemView.findViewById<TextView>(R.id.tvWifiSsid)
-                        tvWifiSsid.text = result.SSID
-                        
-                        itemView.setOnClickListener {
-                            showWifiPasswordDialog(result.SSID, wifiManager)
-                        }
-                        llWifiContainer.addView(itemView)
-                    }
-                } catch (e: SecurityException) {
-                    Toast.makeText(this@MainActivity, "Izin lokasi diperlukan untuk mencari WiFi", Toast.LENGTH_SHORT).show()
-                }
-            }, 1500)
-        }
-
-        btnRefreshWifi.setOnClickListener {
-            scanAndPopulate()
-        }
-
-        btnCancelSettings.setOnClickListener {
-            dialog.dismiss()
-            hideSystemUI()
-        }
-
-        dialog.show()
-        scanAndPopulate()
-    }
-
-    private fun showWifiPasswordDialog(ssid: String, wifiManager: WifiManager) {
-        val input = EditText(this)
-        input.inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
-        input.hint = "Password WiFi"
-        input.setPadding(32, 32, 32, 32)
-
-        android.app.AlertDialog.Builder(this)
-            .setTitle("Sambungkan ke $ssid")
-            .setView(input)
-            .setPositiveButton("Sambung") { _, _ ->
-                val password = input.text.toString()
-                connectToWifi(ssid, password, wifiManager)
-            }
-            .setNegativeButton("Batal", null)
-            .show()
-    }
-
-    private fun connectToWifi(ssid: String, password: String, wifiManager: WifiManager) {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-            val suggestion = android.net.wifi.WifiNetworkSuggestion.Builder()
-                .setSsid(ssid)
-                .setWpa2Passphrase(password)
-                .build()
-
-            val suggestionsList = listOf(suggestion)
-            val status = wifiManager.addNetworkSuggestions(suggestionsList)
-            if (status == WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS) {
-                Toast.makeText(this, "Menghubungkan ke $ssid... (Mungkin muncul pop-up Android)", Toast.LENGTH_LONG).show()
-            } else {
-                Toast.makeText(this, "Gagal menyambungkan. Hapus jaringan lama atau cek password.", Toast.LENGTH_LONG).show()
-            }
-        } else {
-            val conf = android.net.wifi.WifiConfiguration()
-            conf.SSID = "\"" + ssid + "\""
-            conf.preSharedKey = "\"" + password + "\""
-            
-            try {
-                val netId = wifiManager.addNetwork(conf)
-                wifiManager.disconnect()
-                wifiManager.enableNetwork(netId, true)
-                wifiManager.reconnect()
-                Toast.makeText(this, "Menyambungkan ke $ssid...", Toast.LENGTH_SHORT).show()
-            } catch (e: Exception) {
-                Toast.makeText(this, "Gagal menyambungkan.", Toast.LENGTH_SHORT).show()
-            }
-        }
-    }
-
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == REQUEST_NETWORK_SETTINGS) {
-            // Pengguna baru saja kembali dari layar pengaturan jaringan
-            // Langsung kunci layar kembali
-            try {
-                startLockTask()
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-            hideSystemUI()
-        } else if (requestCode == REQUEST_MEDIA_PROJECTION) {
+        if (requestCode == REQUEST_MEDIA_PROJECTION) {
             if (resultCode == android.app.Activity.RESULT_OK && data != null) {
                 // Screen Cast Approved!
                 val serviceIntent = Intent(this, ScreenCaptureService::class.java).apply {

@@ -85,20 +85,6 @@
             
     </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
-    <!-- Floating Network Button -->
-    <ImageButton
-        android:id="@+id/btnNetwork"
-        android:layout_width="56dp"
-        android:layout_height="56dp"
-        android:layout_alignParentBottom="true"
-        android:layout_alignParentEnd="true"
-        android:layout_marginEnd="24dp"
-        android:layout_marginBottom="24dp"
-        android:background="@drawable/bg_circle_gold"
-        android:src="@drawable/ic_signal_wifi"
-        android:elevation="8dp"
-        app:tint="#000000" />
-
     <!-- Token Fullscreen Overlay -->
     <RelativeLayout
         android:id="@+id/tokenOverlay"
