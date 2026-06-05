@@ -32,6 +32,8 @@ import android.widget.LinearLayout
 import android.widget.RelativeLayout
 import android.widget.TextView
 import android.widget.Toast
+import android.widget.ProgressBar
+import android.net.wifi.WifiManager
 import androidx.appcompat.app.AppCompatActivity
 import org.json.JSONObject
 import java.io.BufferedReader
@@ -84,6 +86,7 @@ class MainActivity : AppCompatActivity() {
 
     private val REQUEST_MEDIA_PROJECTION = 1001
     private val REQUEST_NETWORK_SETTINGS = 1003
+    private val REQUEST_LOCATION_PERMISSION = 1004
 
     private var targetUrl = "https://paramartaapp.vercel.app/"
     
@@ -359,30 +362,64 @@ class MainActivity : AppCompatActivity() {
 
         dialog.window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
 
-        val btnOpenSettings = dialogView.findViewById<Button>(R.id.btnOpenSettings)
+        val btnRefreshWifi = dialogView.findViewById<Button>(R.id.btnRefreshWifi)
         val btnCancelSettings = dialogView.findViewById<Button>(R.id.btnCancelSettings)
+        val llWifiContainer = dialogView.findViewById<LinearLayout>(R.id.llWifiContainer)
+        val pbWifiLoading = dialogView.findViewById<ProgressBar>(R.id.pbWifiLoading)
 
-        btnOpenSettings.setOnClickListener {
-            dialog.dismiss()
-            // Buka gembok sesaat
-            try {
-                stopLockTask()
-            } catch (e: Exception) {
-                e.printStackTrace()
+        val wifiManager = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+
+        fun scanAndPopulate() {
+            if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this@MainActivity, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), REQUEST_LOCATION_PERMISSION)
+                return
             }
 
-            // Panggil pengaturan Android
-            val intent = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
-                Intent(android.provider.Settings.Panel.ACTION_INTERNET_CONNECTIVITY)
-            } else {
-                Intent(android.provider.Settings.ACTION_WIFI_SETTINGS)
+            pbWifiLoading.visibility = View.VISIBLE
+            llWifiContainer.removeAllViews()
+
+            if (!wifiManager.isWifiEnabled) {
+                Toast.makeText(this@MainActivity, "Pastikan WiFi di HP Anda menyala!", Toast.LENGTH_SHORT).show()
+                try {
+                    wifiManager.isWifiEnabled = true
+                } catch (e: Exception) {}
             }
+
             try {
-                startActivityForResult(intent, REQUEST_NETWORK_SETTINGS)
-            } catch (e: Exception) {
-                val fallbackIntent = Intent(android.provider.Settings.ACTION_SETTINGS)
-                startActivityForResult(fallbackIntent, REQUEST_NETWORK_SETTINGS)
-            }
+                wifiManager.startScan()
+            } catch (e: Exception) {}
+
+            Handler(Looper.getMainLooper()).postDelayed({
+                pbWifiLoading.visibility = View.GONE
+                try {
+                    val results = wifiManager.scanResults
+                    val uniqueResults = results.distinctBy { it.SSID }.filter { it.SSID.isNotEmpty() }
+                    
+                    if (uniqueResults.isEmpty()) {
+                        val tvEmpty = TextView(this@MainActivity)
+                        tvEmpty.text = "Tidak ada WiFi ditemukan. Coba lagi."
+                        tvEmpty.setTextColor(Color.WHITE)
+                        llWifiContainer.addView(tvEmpty)
+                    }
+
+                    for (result in uniqueResults) {
+                        val itemView = layoutInflater.inflate(R.layout.item_wifi, null)
+                        val tvWifiSsid = itemView.findViewById<TextView>(R.id.tvWifiSsid)
+                        tvWifiSsid.text = result.SSID
+                        
+                        itemView.setOnClickListener {
+                            showWifiPasswordDialog(result.SSID, wifiManager)
+                        }
+                        llWifiContainer.addView(itemView)
+                    }
+                } catch (e: SecurityException) {
+                    Toast.makeText(this@MainActivity, "Izin lokasi diperlukan untuk mencari WiFi", Toast.LENGTH_SHORT).show()
+                }
+            }, 1500)
+        }
+
+        btnRefreshWifi.setOnClickListener {
+            scanAndPopulate()
         }
 
         btnCancelSettings.setOnClickListener {
@@ -391,6 +428,55 @@ class MainActivity : AppCompatActivity() {
         }
 
         dialog.show()
+        scanAndPopulate()
+    }
+
+    private fun showWifiPasswordDialog(ssid: String, wifiManager: WifiManager) {
+        val input = EditText(this)
+        input.inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+        input.hint = "Password WiFi"
+        input.setPadding(32, 32, 32, 32)
+
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Sambungkan ke $ssid")
+            .setView(input)
+            .setPositiveButton("Sambung") { _, _ ->
+                val password = input.text.toString()
+                connectToWifi(ssid, password, wifiManager)
+            }
+            .setNegativeButton("Batal", null)
+            .show()
+    }
+
+    private fun connectToWifi(ssid: String, password: String, wifiManager: WifiManager) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            val suggestion = android.net.wifi.WifiNetworkSuggestion.Builder()
+                .setSsid(ssid)
+                .setWpa2Passphrase(password)
+                .build()
+
+            val suggestionsList = listOf(suggestion)
+            val status = wifiManager.addNetworkSuggestions(suggestionsList)
+            if (status == WifiManager.STATUS_NETWORK_SUGGESTIONS_SUCCESS) {
+                Toast.makeText(this, "Menghubungkan ke $ssid... (Mungkin muncul pop-up Android)", Toast.LENGTH_LONG).show()
+            } else {
+                Toast.makeText(this, "Gagal menyambungkan. Hapus jaringan lama atau cek password.", Toast.LENGTH_LONG).show()
+            }
+        } else {
+            val conf = android.net.wifi.WifiConfiguration()
+            conf.SSID = "\"" + ssid + "\""
+            conf.preSharedKey = "\"" + password + "\""
+            
+            try {
+                val netId = wifiManager.addNetwork(conf)
+                wifiManager.disconnect()
+                wifiManager.enableNetwork(netId, true)
+                wifiManager.reconnect()
+                Toast.makeText(this, "Menyambungkan ke $ssid...", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Toast.makeText(this, "Gagal menyambungkan.", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
 
