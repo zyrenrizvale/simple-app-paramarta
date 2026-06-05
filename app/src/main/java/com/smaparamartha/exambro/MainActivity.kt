@@ -28,8 +28,6 @@ import android.webkit.CookieManager
 import android.webkit.WebStorage
 import android.provider.Settings
 import android.app.DownloadManager
-import android.content.BroadcastReceiver
-import android.content.IntentFilter
 import android.net.Uri
 import android.os.Environment
 import androidx.core.content.FileProvider
@@ -225,7 +223,8 @@ class MainActivity : AppCompatActivity() {
 
                     if (json.has("latest_version_code")) {
                         val latestVersion = json.getInt("latest_version_code")
-                        if (latestVersion > BuildConfig.VERSION_CODE) {
+                        val currentVersionCode = packageManager.getPackageInfo(packageName, 0).versionCode
+                        if (latestVersion > currentVersionCode) {
                             val changelog = if (json.has("changelog")) json.getString("changelog") else "Pembaruan penting tersedia."
                             val apkUrl = if (json.has("apk_url")) json.getString("apk_url") else ""
                             
@@ -622,7 +621,7 @@ class MainActivity : AppCompatActivity() {
         if (file.exists()) {
             val intent = Intent(Intent.ACTION_VIEW)
             intent.setDataAndType(
-                FileProvider.getUriForFile(this, "${applicationId}.fileprovider", file),
+                FileProvider.getUriForFile(this, "${packageName}.fileprovider", file),
                 "application/vnd.android.package-archive"
             )
             intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)

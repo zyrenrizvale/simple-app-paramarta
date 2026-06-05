@@ -3,14 +3,6 @@ name: Release Exambro OTA Update
 on:
   workflow_dispatch:
     inputs:
-      version_code:
-        description: 'Version Code Baru (Angka, contoh: 6)'
-        required: true
-        default: '6'
-      version_name:
-        description: 'Version Name Baru (contoh: 1.5)'
-        required: true
-        default: '1.5'
       changelog:
         description: 'Apa yang baru? (Changelog)'
         required: true
@@ -36,21 +28,33 @@ jobs:
       - name: Hapus Settingan Java Windows
         run: sed -i '/org.gradle.java.home/d' gradle.properties || true
 
-      - name: Rakit APK dengan Versi Baru
-        env:
-          VERSION_CODE: ${{ github.event.inputs.version_code }}
-          VERSION_NAME: ${{ github.event.inputs.version_name }}
+      - name: Menetapkan Versi Otomatis (Auto-Increment)
+        run: |
+          echo "VERSION_CODE=${{ github.run_number }}" >> $GITHUB_ENV
+          echo "VERSION_NAME=1.5.${{ github.run_number }}" >> $GITHUB_ENV
+
+      - name: Rakit APK
         run: ./gradlew assembleRelease
 
       - name: Kirim ke Telegram
         run: |
-          NAMA_FILE="Exambro_v${{ github.event.inputs.version_name }}_b${{ github.event.inputs.version_code }}.apk"
+          NAMA_FILE="Exambro_v${{ env.VERSION_NAME }}_b${{ env.VERSION_CODE }}.apk"
           cp app/build/outputs/apk/release/app-release.apk "$NAMA_FILE"
           
-          PESAN="🚀 *UPDATE EXAMBRO TERSEDIA!* 🚀%0A%0A*Versi:* ${{ github.event.inputs.version_name }} (Build ${{ github.event.inputs.version_code }})%0A*Apa yang baru:*%0A${{ github.event.inputs.changelog }}%0A%0ASilakan update exam.json di Vercel Anda menggunakan file ini."
+          PESAN="🚀 *UPDATE EXAMBRO TERSEDIA!* 🚀%0A%0A*Versi:* ${{ env.VERSION_NAME }} (Build ${{ env.VERSION_CODE }})%0A*Apa yang baru:*%0A${{ github.event.inputs.changelog }}%0A%0A(Sistem Auto-Update Vercel di laptop Anda akan segera memproses ini secara otomatis!)"
           
           for ID in 6071587883 7520038758; do
             curl -F document=@"$NAMA_FILE" \
                  -F caption="$PESAN" \
                  "https://api.telegram.org/bot8825507034:AAHKGjBB6um-i0BWhz1USKQcITKqF-dGhDs/sendDocument?chat_id=$ID"
           done
+
+      - name: Buat GitHub Release untuk Auto-Updater
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: "v${{ env.VERSION_CODE }}"
+          name: "Exambro Update v${{ env.VERSION_NAME }}"
+          body: "${{ github.event.inputs.changelog }}"
+          files: "Exambro_v${{ env.VERSION_NAME }}_b${{ env.VERSION_CODE }}.apk"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
