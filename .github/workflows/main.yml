@@ -1,0 +1,56 @@
+name: Release Exambro OTA Update
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_code:
+        description: 'Version Code Baru (Angka, contoh: 6)'
+        required: true
+        default: '6'
+      version_name:
+        description: 'Version Name Baru (contoh: 1.5)'
+        required: true
+        default: '1.5'
+      changelog:
+        description: 'Apa yang baru? (Changelog)'
+        required: true
+        default: '- Perbaikan bug'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Tarik Kodingan
+        uses: actions/checkout@v3
+
+      - name: Siapkan Java 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Beri Izin Eksekusi Gradle
+        run: chmod +x gradlew
+
+      - name: Hapus Settingan Java Windows
+        run: sed -i '/org.gradle.java.home/d' gradle.properties || true
+
+      - name: Rakit APK dengan Versi Baru
+        env:
+          VERSION_CODE: ${{ github.event.inputs.version_code }}
+          VERSION_NAME: ${{ github.event.inputs.version_name }}
+        run: ./gradlew assembleRelease
+
+      - name: Kirim ke Telegram
+        run: |
+          NAMA_FILE="Exambro_v${{ github.event.inputs.version_name }}_b${{ github.event.inputs.version_code }}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$NAMA_FILE"
+          
+          PESAN="🚀 *UPDATE EXAMBRO TERSEDIA!* 🚀%0A%0A*Versi:* ${{ github.event.inputs.version_name }} (Build ${{ github.event.inputs.version_code }})%0A*Apa yang baru:*%0A${{ github.event.inputs.changelog }}%0A%0ASilakan update exam.json di Vercel Anda menggunakan file ini."
+          
+          for ID in 6071587883 7520038758; do
+            curl -F document=@"$NAMA_FILE" \
+                 -F caption="$PESAN" \
+                 "https://api.telegram.org/bot8825507034:AAHKGjBB6um-i0BWhz1USKQcITKqF-dGhDs/sendDocument?chat_id=$ID"
+          done

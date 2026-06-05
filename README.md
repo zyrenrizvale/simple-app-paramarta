@@ -17,6 +17,25 @@ Repositori ini berisi *Source Code* aplikasi Android (Kotlin) yang terhubung sec
 
 ---
 
+## 🔄 Sistem Pembaruan Otomatis (OTA / In-App Update)
+
+Aplikasi ini memiliki fitur **Force Update** otomatis. Jika Anda ingin merilis pembaruan:
+1. Buka repositori GitHub ini, masuk ke tab **Actions**, dan jalankan workflow **Release Exambro OTA Update** (`main.yml`).
+2. Masukkan *Version Code*, *Version Name*, dan **Apa yang baru? (Changelog)**.
+3. Tunggu hingga GitHub selesai me-rakit APK dan mengirimkannya ke grup Telegram Anda. Salin *link* unduhan APK tersebut.
+4. Buka file `exam.json` di Vercel Anda, lalu tambahkan/ubah konfigurasi update:
+   ```json
+   {
+     "targetUrl": "https://elearning.smaparamartha.sch.id/",
+     "latest_version_code": 6,
+     "changelog": "- Fitur Anti-Hacker\n- Tampilan baru",
+     "apk_url": "https://link-download-apk-anda.com/app.apk"
+   }
+   ```
+5. Saat siswa membuka aplikasi, mereka akan langsung melihat *Pop-Up Wajib Update* beserta *Changelog*-nya. Aplikasi akan mengunduh dan menginstal APK secara mandiri.
+
+---
+
 ## 🛠️ Persyaratan Sistem (Requirement)
 
 - **Android Studio** (Koala / Ladybug atau versi terbaru disarankan).

@@ -20,8 +20,8 @@ android {
         applicationId = "com.smaparamartha.exambro"
         minSdk = 24
         targetSdk = 34
-        versionCode = 5
-        versionName = "1.4"
+        versionCode = System.getenv("VERSION_CODE")?.toIntOrNull() ?: 5
+        versionName = System.getenv("VERSION_NAME") ?: "1.4"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

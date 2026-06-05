@@ -24,6 +24,16 @@ import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.webkit.CookieManager
+import android.webkit.WebStorage
+import android.provider.Settings
+import android.app.DownloadManager
+import android.content.BroadcastReceiver
+import android.content.IntentFilter
+import android.net.Uri
+import android.os.Environment
+import androidx.core.content.FileProvider
+import java.io.File
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageButton
@@ -71,6 +81,9 @@ class MainActivity : AppCompatActivity() {
 
     // Rotation Lock State
     private var isRotationLocked = false
+
+    // Battery Warning State
+    private var isBatteryWarningShown = false
 
     // Overlay Elements
     private lateinit var tokenOverlay: RelativeLayout
@@ -155,6 +168,13 @@ class MainActivity : AppCompatActivity() {
         }
 
         setupWebView()
+        
+        // Clear previous session data (Auto-Clear Cache & Cookies)
+        CookieManager.getInstance().removeAllCookies(null)
+        CookieManager.getInstance().flush()
+        WebStorage.getInstance().deleteAllData()
+        webView.clearCache(true)
+
         fetchDynamicConfig()
         
         btnRotate.setOnClickListener {
@@ -199,6 +219,23 @@ class MainActivity : AppCompatActivity() {
 
                     val json = JSONObject(response.toString())
                     
+                    if (json.has("targetUrl")) {
+                        targetUrl = json.getString("targetUrl")
+                    }
+
+                    if (json.has("latest_version_code")) {
+                        val latestVersion = json.getInt("latest_version_code")
+                        if (latestVersion > BuildConfig.VERSION_CODE) {
+                            val changelog = if (json.has("changelog")) json.getString("changelog") else "Pembaruan penting tersedia."
+                            val apkUrl = if (json.has("apk_url")) json.getString("apk_url") else ""
+                            
+                            if (apkUrl.isNotEmpty()) {
+                                runOnUiThread { showForceUpdateDialog(changelog, apkUrl) }
+                                return@thread
+                            }
+                        }
+                    }
+
                     if (json.has("secret_seed")) {
                         tokenSecretSeed = json.getString("secret_seed")
                     }
@@ -240,6 +277,11 @@ class MainActivity : AppCompatActivity() {
         webSettings.useWideViewPort = true
         webSettings.loadWithOverviewMode = true
         webSettings.userAgentString = webSettings.userAgentString + " ExambroParamartha"
+
+        // Anti-Copas: Disable Text Selection & Long Click
+        webView.isLongClickable = false
+        webView.setOnLongClickListener { true }
+        webView.isHapticFeedbackEnabled = false
 
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView, url: String): Boolean {
@@ -420,6 +462,11 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        checkDeveloperOptions()
+    }
+
     override fun onPause() {
         super.onPause()
         // Jika aplikasi di-minimize atau ditinggalkan saat ujian berlangsung (overlay token tidak terlihat)
@@ -481,8 +528,112 @@ class MainActivity : AppCompatActivity() {
                         ivBattery.setColorFilter(Color.WHITE)
                         tvBattery.setTextColor(Color.WHITE)
                     }
+                    
+                    // Low Battery Warning
+                    if (batteryPct <= 15) {
+                        if (!isBatteryWarningShown) {
+                            isBatteryWarningShown = true
+                            showLowBatteryWarning(batteryPct)
+                        }
+                    } else {
+                        isBatteryWarningShown = false
+                    }
                 }
             }
+        }
+    }
+
+    private fun showLowBatteryWarning(batteryPct: Int) {
+        android.app.AlertDialog.Builder(this@MainActivity)
+            .setTitle("⚠️ BATERAI LEMAH!")
+            .setMessage("Sisa baterai Anda hanya $batteryPct%.\nHarap segera mencari charger atau lapor ke pengawas sebelum HP Anda mati!")
+            .setCancelable(false)
+            .setPositiveButton("Mengerti") { dialog, _ ->
+                dialog.dismiss()
+            }
+            .show()
+    }
+
+    private fun checkDeveloperOptions() {
+        val devOptions = Settings.Global.getInt(contentResolver, Settings.Global.DEVELOPMENT_SETTINGS_ENABLED, 0) != 0
+        val adbEnabled = Settings.Global.getInt(contentResolver, Settings.Global.ADB_ENABLED, 0) != 0
+        if (devOptions || adbEnabled) {
+            showDeveloperOptionsWarning()
+        }
+    }
+
+    private fun showDeveloperOptionsWarning() {
+        android.app.AlertDialog.Builder(this)
+            .setTitle("⛔ PERINGATAN KEAMANAN")
+            .setMessage("Sistem mendeteksi Mode Pengembang (Developer Options) atau USB Debugging aktif di HP ini. Ujian tidak bisa dilanjutkan.\n\nHarap matikan fitur tersebut di Pengaturan HP Anda, lalu buka kembali aplikasi.")
+            .setCancelable(false)
+            .setPositiveButton("Keluar Aplikasi") { _, _ ->
+                exitApp()
+            }
+            .show()
+    }
+
+    private fun showForceUpdateDialog(changelog: String, apkUrl: String) {
+        android.app.AlertDialog.Builder(this)
+            .setTitle("UPDATE WAJIB TERSEDIA")
+            .setMessage("Versi terbaru Exambro telah dirilis.\n\nApa yang baru:\n$changelog\n\nAnda harus memperbarui aplikasi untuk bisa mengikuti ujian.")
+            .setCancelable(false)
+            .setPositiveButton("Update Sekarang") { _, _ ->
+                downloadAndInstallUpdate(apkUrl)
+            }
+            .show()
+    }
+
+    private var downloadId: Long = -1
+
+    private fun downloadAndInstallUpdate(apkUrl: String) {
+        Toast.makeText(this, "Mengunduh pembaruan...", Toast.LENGTH_LONG).show()
+
+        val fileName = "Exambro_Update.apk"
+        val request = DownloadManager.Request(Uri.parse(apkUrl))
+        request.setTitle("Mengunduh Exambro")
+        request.setDescription("Sedang mengunduh pembaruan terbaru...")
+        request.setDestinationInExternalFilesDir(this, Environment.DIRECTORY_DOWNLOADS, fileName)
+        request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+
+        val downloadManager = getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        downloadId = downloadManager.enqueue(request)
+
+        val onComplete = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                val id = intent?.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1)
+                if (downloadId == id) {
+                    Toast.makeText(this@MainActivity, "Unduhan selesai. Memulai instalasi...", Toast.LENGTH_SHORT).show()
+                    installApk(fileName)
+                    unregisterReceiver(this)
+                }
+            }
+        }
+        
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(onComplete, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE), Context.RECEIVER_EXPORTED)
+        } else {
+            registerReceiver(onComplete, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE))
+        }
+    }
+
+    private fun installApk(fileName: String) {
+        val file = File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), fileName)
+        if (file.exists()) {
+            val intent = Intent(Intent.ACTION_VIEW)
+            intent.setDataAndType(
+                FileProvider.getUriForFile(this, "${applicationId}.fileprovider", file),
+                "application/vnd.android.package-archive"
+            )
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            
+            // Buka gembok LockTask secara sementara supaya layar instalasi bisa muncul (karena OS Android memaksa layar penuh)
+            try {
+                stopLockTask()
+            } catch (e: Exception) {}
+
+            startActivity(intent)
         }
     }
 
