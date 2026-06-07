@@ -55,6 +55,10 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import android.webkit.PermissionRequest
 import android.webkit.JsResult
+import java.security.MessageDigest
+import android.content.pm.Signature
+import java.io.OutputStreamWriter
+import android.app.AlertDialog
 
 class MainActivity : AppCompatActivity() {
 
@@ -93,15 +97,32 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnOverlaySubmit: Button
     private lateinit var btnOverlayCancel: Button
 
+    // Anti-Cheat Elements
+    private lateinit var antiCheatOverlay: RelativeLayout
+    private lateinit var tvAntiCheatReason: TextView
+    private lateinit var btnExitCheat: Button
+
     private val REQUEST_MEDIA_PROJECTION = 1001
 
     private var targetUrl = "https://paramartaapp.vercel.app/"
     
     private fun getTargetUrlWithCacheBuster(): String {
-        return targetUrl + "?v=" + System.currentTimeMillis()
+        val androidId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "UNKNOWN"
+        return targetUrl + "?v=" + System.currentTimeMillis() + "&device_id=" + androidId
     }
     private var tokenSecretSeed = "PARAMARTHA_SECRET"
     private var tokenIntervalMinutes = 3
+
+    private var isUpdateDialogShowing = false
+    private val updateHandler = Handler(Looper.getMainLooper())
+    private val updateRunnable = object : Runnable {
+        override fun run() {
+            if (!isUpdateDialogShowing) {
+                fetchDynamicConfig(isPeriodic = true)
+            }
+            updateHandler.postDelayed(this, 60000) // Cek setiap 60 detik
+        }
+    }
 
     private fun isValidToken(inputToken: String, isExit: Boolean): Boolean {
         val type = if (isExit) "KELUAR" else "MASUK"
@@ -138,6 +159,8 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
+        verifyAppSignature()
+        
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA, Manifest.permission.RECORD_AUDIO), 1002)
         }
@@ -162,6 +185,15 @@ class MainActivity : AppCompatActivity() {
         btnOverlaySubmit = findViewById(R.id.btnOverlaySubmit)
         btnOverlayCancel = findViewById(R.id.btnOverlayCancel)
 
+        // Anti-Cheat Bindings
+        antiCheatOverlay = findViewById(R.id.antiCheatOverlay)
+        tvAntiCheatReason = findViewById(R.id.tvAntiCheatReason)
+        btnExitCheat = findViewById(R.id.btnExitCheat)
+        
+        btnExitCheat.setOnClickListener {
+            finishAffinity() // Force exit
+        }
+
         swipeRefreshLayout.setOnRefreshListener {
             webView.reload()
         }
@@ -174,6 +206,7 @@ class MainActivity : AppCompatActivity() {
         WebStorage.getInstance().deleteAllData()
         webView.clearCache(true)
 
+        checkAntiCheat()
         fetchDynamicConfig()
         
         btnRotate.setOnClickListener {
@@ -198,8 +231,19 @@ class MainActivity : AppCompatActivity() {
         }, 4000)
     }
 
-    private fun fetchDynamicConfig() {
-        thread {
+    override fun onResume() {
+        super.onResume()
+        checkAntiCheat()
+        updateHandler.post(updateRunnable)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        updateHandler.removeCallbacks(updateRunnable)
+    }
+
+    private fun fetchDynamicConfig(isPeriodic: Boolean = false) {
+        Thread {
             try {
                 val url = URL("https://paramartaapp.vercel.app/exam.json")
                 val connection = url.openConnection() as HttpURLConnection
@@ -218,8 +262,9 @@ class MainActivity : AppCompatActivity() {
 
                     val json = JSONObject(response.toString())
                     
+                    var newTargetUrl = ""
                     if (json.has("targetUrl")) {
-                        targetUrl = decrypt(json.getString("targetUrl"))
+                        newTargetUrl = decrypt(json.getString("targetUrl"))
                     }
 
                     if (json.has("latest_version_code")) {
@@ -232,7 +277,6 @@ class MainActivity : AppCompatActivity() {
                             if (apkUrl.isNotEmpty()) {
                                 val safeUrl = apkUrl.trim().replace(" ", "%20")
                                 runOnUiThread { showForceUpdateDialog(changelog, safeUrl) }
-                                return@thread
                             }
                         }
                     }
@@ -478,6 +522,74 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    @SuppressLint("PackageManagerGetSignatures")
+    private fun verifyAppSignature() {
+        try {
+            val packageInfo = packageManager.getPackageInfo(packageName, PackageManager.GET_SIGNATURES)
+            for (signature in packageInfo.signatures) {
+                val md = MessageDigest.getInstance("SHA-256")
+                md.update(signature.toByteArray())
+                val digest = md.digest()
+                val hexString = StringBuilder()
+                for (b in digest) {
+                    hexString.append(String.format("%02X", b))
+                }
+                val currentSignature = hexString.toString()
+                
+                // Expected signature of SMA Paramartha (from exambro.keystore)
+                val expectedSignature = "84A9E23C6576E39257ED605698BE0D3F3A9D1228460483EDA6DBF0B12D909450"
+                
+                if (currentSignature != expectedSignature) {
+                    reportTamperingAndClose()
+                    return
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            // If signature check fails fundamentally, we consider it tampered
+            reportTamperingAndClose()
+        }
+    }
+
+    private fun reportTamperingAndClose() {
+        val androidId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "UNKNOWN"
+        val deviceModel = android.os.Build.MODEL ?: "Unknown Device"
+        
+        thread {
+            try {
+                val url = URL("https://sma-paramartha-default-rtdb.firebaseio.com/mod_detections/\$androidId.json")
+                val conn = url.openConnection() as HttpURLConnection
+                conn.requestMethod = "PUT"
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.doOutput = true
+                
+                val jsonBody = JSONObject()
+                jsonBody.put("deviceModel", deviceModel)
+                jsonBody.put("timestamp", System.currentTimeMillis())
+                jsonBody.put("status", "DETECTED")
+                
+                val out = OutputStreamWriter(conn.outputStream)
+                out.write(jsonBody.toString())
+                out.flush()
+                out.close()
+                conn.responseCode // execute
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        runOnUiThread {
+            AlertDialog.Builder(this)
+                .setTitle("Aplikasi Ilegal")
+                .setMessage("Aplikasi ini telah dimodifikasi (di-mod) secara ilegal. Perangkat Anda (ID: \$androidId) telah dilaporkan ke sistem pusat SMA Paramartha dan tidak dapat mengikuti ujian.")
+                .setCancelable(false)
+                .setPositiveButton("TUTUP") { _, _ ->
+                    finishAffinity()
+                }
+                .show()
+        }
+    }
+
     private fun hideSystemUI() {
         window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
                 or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
@@ -575,14 +687,131 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showForceUpdateDialog(changelog: String, apkUrl: String) {
+        if (isUpdateDialogShowing) return
+        isUpdateDialogShowing = true
+        
         android.app.AlertDialog.Builder(this)
-            .setTitle("UPDATE WAJIB TERSEDIA")
-            .setMessage("Versi terbaru Exambro telah dirilis.\n\nApa yang baru:\n$changelog\n\nAnda harus memperbarui aplikasi untuk bisa mengikuti ujian.")
+            .setTitle("Pembaruan Diperlukan")
+            .setMessage("Ada versi baru yang wajib diinstal.\n\nApa yang baru:\n$changelog")
             .setCancelable(false)
             .setPositiveButton("Update Sekarang") { _, _ ->
                 downloadAndInstallUpdate(apkUrl)
             }
             .show()
+    }
+
+    private fun checkAntiCheat() {
+        Thread {
+            // 1. Check Root
+            if (isRooted()) {
+                showAntiCheatWarning("Perangkat ini terdeteksi telah di-Root (Jailbreak). Aplikasi tidak dapat berjalan di perangkat Root demi keamanan.")
+                return@Thread
+            }
+
+            // 2. Check Developer Options / USB Debugging
+            if (Settings.Secure.getInt(contentResolver, Settings.Global.ADB_ENABLED, 0) == 1) {
+                showAntiCheatWarning("USB Debugging / Opsi Pengembang sedang aktif. Harap matikan fitur ini di Pengaturan HP Anda untuk melanjutkan ujian.")
+                return@Thread
+            }
+
+            // 3. Check Dual App / Clone App
+            val dataDir = applicationInfo.dataDir
+            if (dataDir != null && (dataDir.contains("999") || dataDir.contains("dual") || dataDir.contains("clone") || dataDir.contains("parallel"))) {
+                showAntiCheatWarning("Aplikasi terdeteksi dijalankan di dalam Aplikasi Ganda (Dual/Clone App). Hal ini tidak diizinkan.")
+                return@Thread
+            }
+
+            // 4. Check Blacklisted Apps (Auto Clicker, Macro, Cheats)
+            val blacklistedApps = listOf(
+                "com.chelpus.lackypatch",
+                "com.dimonvideo.luckypatcher",
+                "com.forpda.lp",
+                "catch_.me_.if_.you_.can_",
+                "com.truemacro.auto",
+                "com.geone.autoclicker",
+                "com.phonephreak.screenrecorder",
+                "com.topjohnwu.magisk"
+            )
+            val pm = packageManager
+            for (pkg in blacklistedApps) {
+                try {
+                    pm.getPackageInfo(pkg, 0)
+                    showAntiCheatWarning("Terdeteksi Aplikasi Curang / Auto-Clicker di HP Anda. Harap HAPUS aplikasi tersebut sebelum ujian!")
+                    return@Thread
+                } catch (e: PackageManager.NameNotFoundException) {
+                    // Not installed, safe
+                }
+            }
+            // 5. Check App Signature (Anti-Mod / Anti-Tamper)
+            if (!verifyAppSignature()) {
+                runOnUiThread {
+                    targetUrl = "https://paramartaapp.vercel.app/mod.html"
+                    webView.loadUrl(targetUrl)
+                    webView.visibility = android.view.View.VISIBLE
+                    antiCheatOverlay.visibility = android.view.View.GONE
+                    android.widget.Toast.makeText(this@MainActivity, "Modifikasi Ilegal Terdeteksi!", android.widget.Toast.LENGTH_LONG).show()
+                }
+                return@Thread
+            }
+        }.start()
+    }
+
+    private fun verifyAppSignature(): Boolean {
+        try {
+            val packageInfo = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                packageManager.getPackageInfo(packageName, android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES)
+            } else {
+                packageManager.getPackageInfo(packageName, android.content.pm.PackageManager.GET_SIGNATURES)
+            }
+
+            val signatures = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                packageInfo.signingInfo?.apkContentsSigners
+            } else {
+                packageInfo.signatures
+            }
+
+            // SHA-256 Hash of exambro.keystore
+            val expectedHash = "84A9E23C6576E39257ED605698BE0D3F3A9D1228460483EDA6DBF0B12D909450"
+
+            signatures?.forEach { signature ->
+                val md = java.security.MessageDigest.getInstance("SHA-256")
+                md.update(signature.toByteArray())
+                val currentHash = md.digest().joinToString("") { "%02X".format(it) }
+                if (currentHash == expectedHash) {
+                    return true
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return false
+    }
+
+    private fun isRooted(): Boolean {
+        val paths = arrayOf(
+            "/system/app/Superuser.apk",
+            "/sbin/su",
+            "/system/bin/su",
+            "/system/xbin/su",
+            "/data/local/xbin/su",
+            "/data/local/bin/su",
+            "/system/sd/xbin/su",
+            "/system/bin/failsafe/su",
+            "/data/local/su",
+            "/su/bin/su"
+        )
+        for (path in paths) {
+            if (File(path).exists()) return true
+        }
+        return false
+    }
+
+    private fun showAntiCheatWarning(reason: String) {
+        runOnUiThread {
+            tvAntiCheatReason.text = reason
+            antiCheatOverlay.visibility = View.VISIBLE
+            webView.visibility = View.GONE
+        }
     }
 
     private var downloadId: Long = -1
