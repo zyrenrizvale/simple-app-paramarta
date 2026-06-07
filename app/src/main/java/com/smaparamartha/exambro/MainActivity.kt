@@ -507,50 +507,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    override fun onResume() {
-        super.onResume()
-        checkDeveloperOptions()
-    }
-
-    override fun onPause() {
-        super.onPause()
-        // Jika aplikasi di-minimize atau ditinggalkan saat ujian berlangsung (overlay token tidak terlihat)
-        // Maka paksa tampilkan overlay token masuk lagi agar siswa terkunci.
-        if (tokenOverlay.visibility == View.GONE && splashScreen.visibility == View.GONE) {
-            showTokenOverlay(isExit = false)
-            Toast.makeText(this, "Aplikasi diminimize! Ujian dikunci.", Toast.LENGTH_LONG).show()
-        }
-    }
-
-    @SuppressLint("PackageManagerGetSignatures")
-    private fun verifyAppSignature() {
-        try {
-            val packageInfo = packageManager.getPackageInfo(packageName, PackageManager.GET_SIGNATURES)
-            for (signature in packageInfo.signatures) {
-                val md = MessageDigest.getInstance("SHA-256")
-                md.update(signature.toByteArray())
-                val digest = md.digest()
-                val hexString = StringBuilder()
-                for (b in digest) {
-                    hexString.append(String.format("%02X", b))
-                }
-                val currentSignature = hexString.toString()
-                
-                // Expected signature of SMA Paramartha (from exambro.keystore)
-                val expectedSignature = "84A9E23C6576E39257ED605698BE0D3F3A9D1228460483EDA6DBF0B12D909450"
-                
-                if (currentSignature != expectedSignature) {
-                    reportTamperingAndClose()
-                    return
-                }
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            // If signature check fails fundamentally, we consider it tampered
-            reportTamperingAndClose()
-        }
-    }
-
     private fun reportTamperingAndClose() {
         val androidId = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID) ?: "UNKNOWN"
         val deviceModel = android.os.Build.MODEL ?: "Unknown Device"
@@ -744,13 +700,7 @@ class MainActivity : AppCompatActivity() {
             }
             // 5. Check App Signature (Anti-Mod / Anti-Tamper)
             if (!verifyAppSignature()) {
-                runOnUiThread {
-                    targetUrl = "https://paramartaapp.vercel.app/mod.html"
-                    webView.loadUrl(targetUrl)
-                    webView.visibility = android.view.View.VISIBLE
-                    antiCheatOverlay.visibility = android.view.View.GONE
-                    android.widget.Toast.makeText(this@MainActivity, "Modifikasi Ilegal Terdeteksi!", android.widget.Toast.LENGTH_LONG).show()
-                }
+                reportTamperingAndClose()
                 return@Thread
             }
         }.start()
